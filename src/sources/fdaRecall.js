@@ -92,7 +92,10 @@ export async function poll(cfg) {
           `${r.reason_for_recall || ''} — ${r.recalling_firm || ''}`,
           500
         ),
-        link: 'https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts',
+        // Land on the FDA recalls page pre-filtered to this firm's recall(s).
+        link: `https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts?search_api_fulltext=${encodeURIComponent(
+          r.recalling_firm || r.product_description || ''
+        )}`,
         starts_at: null,
         expires_at: null,
       });

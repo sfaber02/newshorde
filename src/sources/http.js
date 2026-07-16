@@ -16,6 +16,18 @@ export async function fetchJson(url, { headers = {}, timeoutMs = 12000 } = {}) {
   }
 }
 
+export async function fetchText(url, { headers = {}, timeoutMs = 15000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { headers, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function truncate(str, n = 400) {
   if (!str) return str;
   const clean = String(str).replace(/\s+/g, ' ').trim();

@@ -32,7 +32,21 @@ function keyOf(it) {
 }
 
 // ---- shared helpers ---------------------------------------------------------
-const TAGS = { flee: 'Flee', recall: 'Recall', quake: 'Quake', personal: 'For you' };
+const TAGS = { flee: 'Flee', recall: 'Recall', outbreak: 'Outbreak', quake: 'Quake', personal: 'For you' };
+
+// Map an NWS shortForecast string to a simple emoji (day/night aware).
+function wxEmoji(short, isDay = true) {
+  const s = (short || '').toLowerCase();
+  if (s.includes('thunder')) return '⛈️';
+  if (/(snow|flurr|sleet|ice|wintry|blizzard)/.test(s)) return '🌨️';
+  if (/(rain|shower|drizzle)/.test(s)) return '🌧️';
+  if (/(fog|haze|smoke|mist)/.test(s)) return '🌫️';
+  if (s.includes('wind')) return '💨';
+  if (/(partly|mostly sunny|mostly clear)/.test(s)) return isDay ? '⛅' : '🌙';
+  if (/(cloud|overcast)/.test(s)) return '☁️';
+  if (/(sun|clear|fair)/.test(s)) return isDay ? '☀️' : '🌙';
+  return isDay ? '🌡️' : '🌙';
+}
 function tagFor(it) {
   if (it.category === 'flee') {
     if (it.severity === 'critical') return 'Flee';
@@ -107,7 +121,7 @@ function renderWeather(d) {
   const hourly = (d.hourly || []).map((h) => `
     <div class="wx-hour">
       <div class="h">${esc(fmtHour(h.time))}</div>
-      ${h.icon ? `<img src="${esc(h.icon)}" alt="" loading="lazy">` : ''}
+      <div class="emoji">${wxEmoji(h.short, h.isDaytime)}</div>
       <div class="t">${h.temp}°</div>
       ${h.precip != null ? `<div class="p">${h.precip}%</div>` : '<div class="p">&nbsp;</div>'}
       <div class="w">${esc((h.wind || '').replace(' mph', ''))}</div>
@@ -116,16 +130,20 @@ function renderWeather(d) {
   const daily = (d.daily || []).map((p) => `
     <div class="wx-day">
       <div class="name">${esc(p.name)}</div>
-      ${p.icon ? `<img src="${esc(p.icon)}" alt="" loading="lazy">` : ''}
+      <div class="demoji">${wxEmoji(p.short, p.isDaytime)}</div>
       <div class="dshort">${esc(p.short)}</div>
       <div class="dp">${p.precip != null ? p.precip + '%' : ''}</div>
       <div class="dtemp">${p.temp}°</div>
     </div>`).join('');
 
+  const fc = d.forecastUrl
+    ? `<a class="wx-full" href="${esc(d.forecastUrl)}" target="_blank" rel="noopener">Full forecast ↗</a>`
+    : '';
+
   weatherEl.innerHTML = `
     <div class="wx">
       <div class="wx-head">
-        ${cur && cur.icon ? `<img class="wx-icon" src="${esc(cur.icon)}" alt="">` : ''}
+        ${cur ? `<div class="wx-emoji">${wxEmoji(cur.short, cur.isDaytime)}</div>` : ''}
         ${cur ? `<div class="wx-temp">${cur.temp}°</div>` : ''}
         <div class="wx-meta">
           <div class="wx-loc">${esc(d.location)}</div>
@@ -139,6 +157,7 @@ function renderWeather(d) {
       ${alerts ? `<div class="wx-alerts">${alerts}</div>` : ''}
       ${hourly ? `<div class="wx-section-label">Next hours</div><div class="wx-hourly">${hourly}</div>` : ''}
       ${daily ? `<div class="wx-section-label">Next days</div><div class="wx-daily">${daily}</div>` : ''}
+      ${fc}
     </div>`;
 }
 

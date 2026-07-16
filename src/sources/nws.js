@@ -71,7 +71,7 @@ export async function poll(cfg) {
       category: 'flee',
       title: p.event || 'Weather alert',
       body: truncate(p.headline || p.description, 500),
-      link: p['@id'] || `https://api.weather.gov/alerts/active?point=${lat},${lon}`,
+      link: `https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}`,
       starts_at: p.onset || p.effective || null,
       expires_at: p.ends || p.expires || null,
     });

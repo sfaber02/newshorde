@@ -65,6 +65,7 @@ app.get('/api/status', (req, res) => {
       total: items.length,
       flee: items.filter((i) => i.category === 'flee').length,
       recall: items.filter((i) => i.category === 'recall').length,
+      outbreak: items.filter((i) => i.category === 'outbreak').length,
       quake: items.filter((i) => i.category === 'quake').length,
       personal: items.filter((i) => i.category === 'personal').length,
     },
@@ -87,7 +88,7 @@ function mapHour(p) {
     wind: p.windSpeed,
     windDir: p.windDirection,
     short: p.shortForecast,
-    icon: p.icon,
+    isDaytime: p.isDaytime,
   };
 }
 function mapDay(p) {
@@ -99,10 +100,9 @@ function mapDay(p) {
     precip: p.probabilityOfPrecipitation?.value ?? null,
     wind: p.windSpeed,
     short: p.shortForecast,
-    icon: p.icon,
   };
 }
-function mapAlert(f) {
+function mapAlert(f, humanUrl) {
   const p = f.properties || {};
   return {
     event: p.event,
@@ -110,7 +110,8 @@ function mapAlert(f) {
     headline: p.headline,
     area: p.areaDesc,
     expires: p.ends || p.expires,
-    link: p['@id'] || null,
+    // Point at the human forecast/hazards page, not the alert's JSON URL.
+    link: humanUrl,
   };
 }
 
@@ -136,13 +137,15 @@ async function getForecast(lat, lon) {
 
   const hp = hourly?.properties?.periods || [];
   const dp = daily?.properties?.periods || [];
+  const forecastUrl = `https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}`;
   const data = {
     location: label,
+    forecastUrl,
     updatedAt: new Date().toISOString(),
     current: hp[0] ? mapHour(hp[0]) : null,
     hourly: hp.slice(0, 12).map(mapHour),
     daily: dp.slice(0, 6).map(mapDay),
-    alerts: (alertsRaw?.features || []).map(mapAlert),
+    alerts: (alertsRaw?.features || []).map((f) => mapAlert(f, forecastUrl)),
   };
   forecastCache.set(key, { at: Date.now(), data });
   return data;

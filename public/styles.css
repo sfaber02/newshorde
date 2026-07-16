@@ -6,6 +6,7 @@
   --line: #232a33;
   --flee: #ff3b30;
   --recall: #ff9f0a;
+  --outbreak: #bf5af2;
   --quake: #ffd60a;
   --personal: #5ac8fa;
   --clear: #30d158;
@@ -98,6 +99,7 @@ header.top {
 }
 .card.flee     { border-left-color: var(--flee); }
 .card.recall   { border-left-color: var(--recall); }
+.card.outbreak { border-left-color: var(--outbreak); }
 .card.quake    { border-left-color: var(--quake); }
 .card.personal { border-left-color: var(--personal); }
 
@@ -113,6 +115,7 @@ header.top {
 }
 .card.flee .tag     { background: rgba(255,59,48,0.15);  color: var(--flee); }
 .card.recall .tag   { background: rgba(255,159,10,0.15); color: var(--recall); }
+.card.outbreak .tag { background: rgba(191,90,242,0.15); color: var(--outbreak); }
 .card.quake .tag    { background: rgba(255,214,10,0.15); color: var(--quake); }
 .card.personal .tag { background: rgba(90,200,250,0.15); color: var(--personal); }
 
@@ -164,7 +167,7 @@ header.top {
   flex-wrap: wrap;
 }
 .wx-temp { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
-.wx-icon { width: 46px; height: 46px; border-radius: 8px; }
+.wx-emoji { font-size: 40px; line-height: 1; }
 .wx-meta { display: flex; flex-direction: column; }
 .wx-loc { font-weight: 700; font-size: 15px; }
 .wx-cond { color: var(--muted); font-size: 14px; }
@@ -204,7 +207,7 @@ header.top {
   padding: 8px 4px;
 }
 .wx-hour .h { font-size: 11px; color: var(--muted); }
-.wx-hour img { width: 28px; height: 28px; margin: 4px 0; }
+.wx-hour .emoji { font-size: 22px; margin: 4px 0; line-height: 1; }
 .wx-hour .t { font-size: 15px; font-weight: 700; }
 .wx-hour .p { font-size: 11px; color: var(--personal); }
 .wx-hour .w { font-size: 10px; color: var(--muted); margin-top: 2px; }
@@ -219,10 +222,12 @@ header.top {
 }
 .wx-day:first-child { border-top: none; }
 .wx-day .name { width: 78px; font-weight: 600; font-size: 14px; }
-.wx-day img { width: 30px; height: 30px; }
+.wx-day .demoji { font-size: 22px; width: 30px; text-align: center; line-height: 1; }
 .wx-day .dshort { flex: 1; color: var(--muted); font-size: 13px; }
 .wx-day .dtemp { font-weight: 700; font-size: 15px; }
 .wx-day .dp { color: var(--personal); font-size: 12px; width: 42px; text-align: right; }
+
+.wx-full { display: inline-block; margin-top: 12px; color: var(--personal); text-decoration: none; font-size: 13px; }
 
 /* location modal */
 .modal {
