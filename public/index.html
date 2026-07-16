@@ -10,8 +10,15 @@
 <body>
   <div class="wrap">
     <header class="top">
-      <div class="brand">NewsHorde <small>— "I don't wanna know unless it's gonna kill me"</small></div>
-      <div class="meta" id="meta">checking…</div>
+      <div class="brand">NewsHorde</div>
+      <div class="tagline">“I don't wanna know unless it's gonna kill me”</div>
+      <div class="statusbar">
+        <span class="meta" id="meta">checking…</span>
+        <span class="controls">
+          <button class="pill" id="toggle" hidden>Show read</button>
+          <button class="pill" id="markall" hidden>Mark all read</button>
+        </span>
+      </div>
     </header>
     <main id="feed"><!-- rendered by app.js --></main>
   </div>

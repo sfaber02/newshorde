@@ -157,9 +157,28 @@ export function activeItems() {
   return rows;
 }
 
+// Already-read (dismissed) items, most recent first, capped.
+export function readItems(limit = 100) {
+  return db
+    .prepare(
+      `SELECT items.*, sources.type AS source_type, sources.label AS source_label
+       FROM items JOIN sources ON sources.id = items.source_id
+       WHERE items.dismissed = 1
+       ORDER BY items.last_seen DESC
+       LIMIT ?`
+    )
+    .all(limit);
+}
+
 export function dismissItem(id) {
   return db.prepare('UPDATE items SET dismissed = 1 WHERE id = ?').run(id)
     .changes > 0;
+}
+
+// Mark every currently-undismissed item as read. Returns how many were cleared.
+export function dismissAllActive() {
+  return db.prepare('UPDATE items SET dismissed = 1 WHERE dismissed = 0').run()
+    .changes;
 }
 
 // Drop dismissed/expired rows older than a cutoff to keep the table small.
