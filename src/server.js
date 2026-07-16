@@ -1,9 +1,11 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cron from 'node-cron';
 import { z } from 'zod';
 import { config } from './config.js';
+import { fetchJson } from './sources/http.js';
 import {
   activeItems,
   listSources,
@@ -69,6 +71,118 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// ---- weather (per-visitor location) ----------------------------------------
+// NWS forecast + alerts for a point. Cached briefly to stay gentle on api.weather.gov.
+const forecastCache = new Map();
+const FORECAST_TTL = 10 * 60 * 1000;
+
+const nwsHeaders = { 'User-Agent': config.nwsContact, Accept: 'application/geo+json' };
+
+function mapHour(p) {
+  return {
+    time: p.startTime,
+    temp: p.temperature,
+    tempUnit: p.temperatureUnit,
+    precip: p.probabilityOfPrecipitation?.value ?? null,
+    wind: p.windSpeed,
+    windDir: p.windDirection,
+    short: p.shortForecast,
+    icon: p.icon,
+  };
+}
+function mapDay(p) {
+  return {
+    name: p.name,
+    isDaytime: p.isDaytime,
+    temp: p.temperature,
+    tempUnit: p.temperatureUnit,
+    precip: p.probabilityOfPrecipitation?.value ?? null,
+    wind: p.windSpeed,
+    short: p.shortForecast,
+    icon: p.icon,
+  };
+}
+function mapAlert(f) {
+  const p = f.properties || {};
+  return {
+    event: p.event,
+    severity: p.severity,
+    headline: p.headline,
+    area: p.areaDesc,
+    expires: p.ends || p.expires,
+    link: p['@id'] || null,
+  };
+}
+
+async function getForecast(lat, lon) {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  const hit = forecastCache.get(key);
+  if (hit && Date.now() - hit.at < FORECAST_TTL) return hit.data;
+
+  const points = await fetchJson(`https://api.weather.gov/points/${lat},${lon}`, {
+    headers: nwsHeaders,
+  });
+  const pp = points.properties || {};
+  const loc = pp.relativeLocation?.properties;
+  const label = loc ? `${loc.city}, ${loc.state}` : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+
+  const [daily, hourly, alertsRaw] = await Promise.all([
+    fetchJson(pp.forecast, { headers: nwsHeaders }).catch(() => null),
+    fetchJson(pp.forecastHourly, { headers: nwsHeaders }).catch(() => null),
+    fetchJson(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, {
+      headers: nwsHeaders,
+    }).catch(() => null),
+  ]);
+
+  const hp = hourly?.properties?.periods || [];
+  const dp = daily?.properties?.periods || [];
+  const data = {
+    location: label,
+    updatedAt: new Date().toISOString(),
+    current: hp[0] ? mapHour(hp[0]) : null,
+    hourly: hp.slice(0, 12).map(mapHour),
+    daily: dp.slice(0, 6).map(mapDay),
+    alerts: (alertsRaw?.features || []).map(mapAlert),
+  };
+  forecastCache.set(key, { at: Date.now(), data });
+  return data;
+}
+
+app.get('/api/forecast', async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+  if (!isFinite(lat) || !isFinite(lon)) {
+    return res.status(400).json({ error: 'lat/lon required' });
+  }
+  try {
+    res.json(await getForecast(lat, lon));
+  } catch (e) {
+    res.status(502).json({ error: String(e.message) });
+  }
+});
+
+// Geocode a city/ZIP to lat/lon for manual location entry (US only — NWS is US).
+app.get('/api/geocode', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q required' });
+  try {
+    const data = await fetchJson(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(
+        q
+      )}`,
+      { headers: { 'User-Agent': config.nwsContact } }
+    );
+    if (!data.length) return res.status(404).json({ error: 'not found' });
+    res.json({
+      lat: Number(data[0].lat),
+      lon: Number(data[0].lon),
+      label: data[0].display_name.split(',').slice(0, 2).join(',').trim(),
+    });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message) });
+  }
+});
+
 // ---- admin: source management ----------------------------------------------
 app.get('/api/catalog', requireAdmin, (req, res) => {
   res.json({ catalog: pluginCatalog() });
@@ -119,13 +233,21 @@ app.post('/api/poll', requireAdmin, async (req, res) => {
 });
 
 // ---- static pages -----------------------------------------------------------
-// Gate the admin page BEFORE the static handler so admin.html can't be served
-// unauthenticated by express.static.
-app.get(['/admin', '/admin.html'], requireAdmin, (req, res) =>
-  res.sendFile(path.join(publicDir, 'admin.html'))
-);
-app.use(express.static(publicDir));
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+// Cache-bust versioned assets: Cloudflare forces a long browser TTL on JS/CSS, so
+// we serve HTML with no-store and stamp a per-boot version onto asset URLs. Each
+// deploy restarts the process -> new version -> browsers fetch fresh JS/CSS.
+const ASSET_VERSION = String(Date.now());
+function sendHtml(res, file) {
+  let html = fs.readFileSync(path.join(publicDir, file), 'utf8');
+  html = html.replace(/(\/(?:app|admin)\.js|\/styles\.css)"/g, `$1?v=${ASSET_VERSION}"`);
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(html);
+}
+
+app.get(['/', '/index.html'], (req, res) => sendHtml(res, 'index.html'));
+// Gate the admin page BEFORE static so admin.html can't be served unauthenticated.
+app.get(['/admin', '/admin.html'], requireAdmin, (req, res) => sendHtml(res, 'admin.html'));
+app.use(express.static(publicDir, { index: false }));
 
 // ---- boot -------------------------------------------------------------------
 app.listen(config.port, () => {

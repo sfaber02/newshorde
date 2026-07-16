@@ -148,6 +148,109 @@ header.top {
 }
 .card .foot button:hover { color: var(--fg); border-color: var(--muted); }
 
+/* weather panel */
+#weather:empty { display: none; }
+.wx {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+.wx-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.wx-temp { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.wx-icon { width: 46px; height: 46px; border-radius: 8px; }
+.wx-meta { display: flex; flex-direction: column; }
+.wx-loc { font-weight: 700; font-size: 15px; }
+.wx-cond { color: var(--muted); font-size: 14px; }
+.wx-stats { margin-left: auto; text-align: right; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.wx-stats b { color: var(--fg); font-weight: 600; }
+
+.wx-alerts { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+.wx-alert {
+  display: block;
+  background: rgba(255,59,48,0.12);
+  border: 1px solid rgba(255,59,48,0.35);
+  color: #ff8a80;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.wx-alert.moderate { background: rgba(255,159,10,0.12); border-color: rgba(255,159,10,0.35); color: var(--recall); }
+
+.wx-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 8px; }
+
+.wx-hourly {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+.wx-hour {
+  flex: 0 0 auto;
+  width: 62px;
+  text-align: center;
+  background: #0f1318;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 4px;
+}
+.wx-hour .h { font-size: 11px; color: var(--muted); }
+.wx-hour img { width: 28px; height: 28px; margin: 4px 0; }
+.wx-hour .t { font-size: 15px; font-weight: 700; }
+.wx-hour .p { font-size: 11px; color: var(--personal); }
+.wx-hour .w { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.wx-daily { display: flex; flex-direction: column; }
+.wx-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--line);
+}
+.wx-day:first-child { border-top: none; }
+.wx-day .name { width: 78px; font-weight: 600; font-size: 14px; }
+.wx-day img { width: 30px; height: 30px; }
+.wx-day .dshort { flex: 1; color: var(--muted); font-size: 13px; }
+.wx-day .dtemp { font-weight: 700; font-size: 15px; }
+.wx-day .dp { color: var(--personal); font-size: 12px; width: 42px; text-align: right; }
+
+/* location modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  width: 100%;
+  max-width: 380px;
+}
+.modal-card h3 { margin: 0 0 4px; font-size: 18px; }
+.modal-sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.modal .or { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.modal-actions .btn { margin-top: 0; }
+.modal-err { color: var(--flee); font-size: 13px; margin-top: 8px; min-height: 16px; }
+
 /* admin */
 .admin-section { margin-bottom: 28px; }
 .admin-section h2 { font-size: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }

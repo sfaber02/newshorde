@@ -15,13 +15,35 @@
       <div class="statusbar">
         <span class="meta" id="meta">checking…</span>
         <span class="controls">
+          <button class="pill" id="loc">📍 Location</button>
           <button class="pill" id="toggle" hidden>Show read</button>
           <button class="pill" id="markall" hidden>Mark all read</button>
         </span>
       </div>
     </header>
+
+    <section id="weather"><!-- forecast rendered by app.js when a location is set --></section>
     <main id="feed"><!-- rendered by app.js --></main>
   </div>
+
+  <!-- location modal -->
+  <div class="modal" id="locModal" hidden>
+    <div class="modal-card">
+      <h3>Your location</h3>
+      <p class="modal-sub">For your local forecast &amp; weather alerts. Stored only in this browser.</p>
+      <button class="btn" id="locGeo">📍 Use my current location</button>
+      <div class="or">or</div>
+      <label for="locInput">City, state or ZIP</label>
+      <input id="locInput" placeholder="e.g. Portland, OR or 97201" autocomplete="off" />
+      <div class="modal-err" id="locErr"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="locClear">Clear</button>
+        <button class="btn ghost" id="locCancel">Cancel</button>
+        <button class="btn" id="locSave">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

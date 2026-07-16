@@ -145,7 +145,7 @@ export function activeItems() {
       `SELECT items.*, sources.type AS source_type, sources.label AS source_label
        FROM items JOIN sources ON sources.id = items.source_id
        WHERE sources.enabled = 1
-         AND (items.expires_at IS NULL OR items.expires_at > datetime('now'))
+         AND (items.expires_at IS NULL OR datetime(items.expires_at) > datetime('now'))
        ORDER BY items.first_seen DESC`
     )
     .all();
@@ -162,7 +162,7 @@ export function pruneItems(days = 30) {
   return db
     .prepare(
       `DELETE FROM items
-       WHERE expires_at IS NOT NULL AND expires_at < datetime('now', ?)`
+       WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now', ?)`
     )
     .run(`-${days} days`).changes;
 }

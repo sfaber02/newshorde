@@ -2,39 +2,37 @@ const feed = document.getElementById('feed');
 const meta = document.getElementById('meta');
 const toggleBtn = document.getElementById('toggle');
 const markAllBtn = document.getElementById('markall');
+const weatherEl = document.getElementById('weather');
+const locBtn = document.getElementById('loc');
 
 let view = 'unread'; // 'unread' | 'read'
 
-// Read/unread state lives in THIS browser only. Keyed by a stable per-item key so
-// it survives re-polls and DB reseeds; a different browser/device sees everything
-// unread until it marks read here.
+// ---- local per-browser state ------------------------------------------------
 const READ_STORE = 'nh_read';
-let readSet = new Set(loadRead());
+const LOC_STORE = 'nh_location';
+let readSet = new Set(loadJSON(READ_STORE, []));
+let userLoc = loadJSON(LOC_STORE, null); // { lat, lon, label }
 
-function loadRead() {
+function loadJSON(k, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(READ_STORE) || '[]');
+    return JSON.parse(localStorage.getItem(k)) ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 function saveRead() {
   localStorage.setItem(READ_STORE, JSON.stringify([...readSet]));
 }
+function saveLoc() {
+  if (userLoc) localStorage.setItem(LOC_STORE, JSON.stringify(userLoc));
+  else localStorage.removeItem(LOC_STORE);
+}
 function keyOf(it) {
-  // dedupe_key is stable per alert; fall back to id.
   return it.dedupe_key ? `${it.source_type || ''}:${it.dedupe_key}` : `id:${it.id}`;
 }
 
-const TAGS = {
-  flee: 'Flee',
-  recall: 'Recall',
-  quake: 'Quake',
-  personal: 'For you',
-};
-
-// A "flee" card that isn't life-threatening (e.g. an air quality alert) shouldn't
-// literally shout FLEE — soften the tag by severity.
+// ---- shared helpers ---------------------------------------------------------
+const TAGS = { flee: 'Flee', recall: 'Recall', quake: 'Quake', personal: 'For you' };
 function tagFor(it) {
   if (it.category === 'flee') {
     if (it.severity === 'critical') return 'Flee';
@@ -43,20 +41,168 @@ function tagFor(it) {
   }
   return TAGS[it.category] || it.category;
 }
-
 function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])
-  );
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
-
 function fmtTime(iso) {
   if (!iso) return '';
   const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
   if (isNaN(d)) return '';
   return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
+function fmtHour(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleTimeString([], { hour: 'numeric' });
+}
 
+// ============================================================================
+// WEATHER
+// ============================================================================
+function updateLocButton() {
+  locBtn.textContent = userLoc ? `📍 ${userLoc.label}` : '📍 Location';
+}
+
+async function loadWeather() {
+  if (!userLoc) {
+    weatherEl.innerHTML = `
+      <div class="wx">
+        <div class="wx-head">
+          <div class="wx-meta">
+            <div class="wx-loc">📍 Set your location</div>
+            <div class="wx-cond">Get a local forecast + weather alerts</div>
+          </div>
+          <button class="btn" id="wxSetLoc" style="margin-left:auto">Set location</button>
+        </div>
+      </div>`;
+    document.getElementById('wxSetLoc').onclick = openLocModal;
+    return;
+  }
+  try {
+    const res = await fetch(`/api/forecast?lat=${userLoc.lat}&lon=${userLoc.lon}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('forecast unavailable');
+    const data = await res.json();
+    // Upgrade a coarse label (e.g. from geolocation) to the real place name.
+    if (data.location && data.location !== userLoc.label) {
+      userLoc.label = data.location;
+      saveLoc();
+      updateLocButton();
+    }
+    renderWeather(data);
+  } catch (err) {
+    weatherEl.innerHTML = `<div class="wx"><div class="wx-cond">Couldn't load the forecast for ${esc(userLoc.label)}. ${esc(String(err.message))}</div></div>`;
+  }
+}
+
+function renderWeather(d) {
+  const cur = d.current;
+  const alerts = (d.alerts || []).map((a) => {
+    const cls = /extreme|severe/i.test(a.severity || '') ? '' : ' moderate';
+    const label = `⚠ ${esc(a.event)}${a.headline ? ' — ' + esc(a.headline) : ''}`;
+    return a.link
+      ? `<a class="wx-alert${cls}" href="${esc(a.link)}" target="_blank" rel="noopener">${label}</a>`
+      : `<div class="wx-alert${cls}">${label}</div>`;
+  }).join('');
+
+  const hourly = (d.hourly || []).map((h) => `
+    <div class="wx-hour">
+      <div class="h">${esc(fmtHour(h.time))}</div>
+      ${h.icon ? `<img src="${esc(h.icon)}" alt="" loading="lazy">` : ''}
+      <div class="t">${h.temp}°</div>
+      ${h.precip != null ? `<div class="p">${h.precip}%</div>` : '<div class="p">&nbsp;</div>'}
+      <div class="w">${esc((h.wind || '').replace(' mph', ''))}</div>
+    </div>`).join('');
+
+  const daily = (d.daily || []).map((p) => `
+    <div class="wx-day">
+      <div class="name">${esc(p.name)}</div>
+      ${p.icon ? `<img src="${esc(p.icon)}" alt="" loading="lazy">` : ''}
+      <div class="dshort">${esc(p.short)}</div>
+      <div class="dp">${p.precip != null ? p.precip + '%' : ''}</div>
+      <div class="dtemp">${p.temp}°</div>
+    </div>`).join('');
+
+  weatherEl.innerHTML = `
+    <div class="wx">
+      <div class="wx-head">
+        ${cur && cur.icon ? `<img class="wx-icon" src="${esc(cur.icon)}" alt="">` : ''}
+        ${cur ? `<div class="wx-temp">${cur.temp}°</div>` : ''}
+        <div class="wx-meta">
+          <div class="wx-loc">${esc(d.location)}</div>
+          <div class="wx-cond">${cur ? esc(cur.short) : ''}</div>
+        </div>
+        ${cur ? `<div class="wx-stats">
+          <div>💨 <b>${esc(cur.wind || '—')}</b></div>
+          <div>🌧 <b>${cur.precip != null ? cur.precip + '%' : '—'}</b> precip</div>
+        </div>` : ''}
+      </div>
+      ${alerts ? `<div class="wx-alerts">${alerts}</div>` : ''}
+      ${hourly ? `<div class="wx-section-label">Next hours</div><div class="wx-hourly">${hourly}</div>` : ''}
+      ${daily ? `<div class="wx-section-label">Next days</div><div class="wx-daily">${daily}</div>` : ''}
+    </div>`;
+}
+
+// ---- location modal ---------------------------------------------------------
+const locModal = document.getElementById('locModal');
+const locInput = document.getElementById('locInput');
+const locErr = document.getElementById('locErr');
+
+function openLocModal() {
+  locErr.textContent = '';
+  locInput.value = '';
+  locModal.hidden = false;
+  locInput.focus();
+}
+function closeLocModal() {
+  locModal.hidden = true;
+}
+
+async function setLoc(lat, lon, label) {
+  userLoc = { lat, lon, label: label || 'My location' };
+  saveLoc();
+  updateLocButton();
+  closeLocModal();
+  await loadWeather();
+}
+
+document.getElementById('locGeo').addEventListener('click', () => {
+  if (!navigator.geolocation) { locErr.textContent = 'Geolocation not available.'; return; }
+  locErr.textContent = 'Locating…';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => setLoc(pos.coords.latitude, pos.coords.longitude, 'My location'),
+    (err) => { locErr.textContent = 'Location denied: ' + err.message; },
+    { timeout: 10000 }
+  );
+});
+
+document.getElementById('locSave').addEventListener('click', async () => {
+  const q = locInput.value.trim();
+  if (!q) { closeLocModal(); return; }
+  locErr.textContent = 'Looking up…';
+  try {
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error('couldn’t find that place');
+    const g = await res.json();
+    await setLoc(g.lat, g.lon, g.label);
+  } catch (err) {
+    locErr.textContent = String(err.message);
+  }
+});
+
+document.getElementById('locClear').addEventListener('click', () => {
+  userLoc = null;
+  saveLoc();
+  updateLocButton();
+  closeLocModal();
+  loadWeather();
+});
+document.getElementById('locCancel').addEventListener('click', closeLocModal);
+locBtn.addEventListener('click', openLocModal);
+locModal.addEventListener('click', (e) => { if (e.target === locModal) closeLocModal(); });
+
+// ============================================================================
+// FEED
+// ============================================================================
 function renderEmpty() {
   if (view === 'read') {
     feed.innerHTML = `
@@ -101,7 +247,6 @@ async function refresh() {
     const res = await fetch('/api/items', { cache: 'no-store' });
     const { items, status } = await res.json();
 
-    // Keep the local read set bounded to alerts that still exist.
     const present = new Set(items.map(keyOf));
     let pruned = false;
     for (const k of [...readSet]) if (!present.has(k)) { readSet.delete(k); pruned = true; }
@@ -115,18 +260,13 @@ async function refresh() {
     else renderItems(shown);
 
     const last = status?.lastRun ? fmtTime(status.lastRun) : '—';
-    if (view === 'read') {
-      meta.innerHTML = `${read.length} read · <a href="/admin">manage</a>`;
-    } else {
-      meta.innerHTML = `${unread.length} active · checked ${esc(last)} · <a href="/admin">manage</a>`;
-    }
+    meta.innerHTML = view === 'read'
+      ? `${read.length} read · <a href="/admin">manage</a>`
+      : `${unread.length} active · checked ${esc(last)} · <a href="/admin">manage</a>`;
 
-    // Controls: toggle always available; mark-all only in unread view with items.
     toggleBtn.hidden = false;
     toggleBtn.textContent = view === 'read' ? 'Show unread' : 'Show read';
     markAllBtn.hidden = view === 'read' || unread.length === 0;
-
-    // Stash the latest unread keys so Mark-all can act without another fetch.
     markAllBtn._keys = unread.map(keyOf);
   } catch (err) {
     meta.textContent = 'offline — retrying…';
@@ -137,12 +277,15 @@ toggleBtn.addEventListener('click', () => {
   view = view === 'read' ? 'unread' : 'read';
   refresh();
 });
-
 markAllBtn.addEventListener('click', () => {
   for (const k of markAllBtn._keys || []) readSet.add(k);
   saveRead();
   refresh();
 });
 
+// ---- boot -------------------------------------------------------------------
+updateLocButton();
+loadWeather();
 refresh();
 setInterval(refresh, 60000);
+setInterval(loadWeather, 10 * 60 * 1000);
