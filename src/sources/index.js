@@ -3,12 +3,14 @@ import * as nws from './nws.js';
 import * as fdaRecall from './fdaRecall.js';
 import * as usgsQuake from './usgsQuake.js';
 import * as rss from './rss.js';
+import * as bandsintown from './bandsintown.js';
 
 export const plugins = {
   [nws.meta.type]: nws,
   [fdaRecall.meta.type]: fdaRecall,
   [usgsQuake.meta.type]: usgsQuake,
   [rss.meta.type]: rss,
+  [bandsintown.meta.type]: bandsintown,
 };
 
 export function getPlugin(type) {
