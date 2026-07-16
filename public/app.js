@@ -305,7 +305,7 @@ markAllBtn.addEventListener('click', () => {
 // ---- boot -------------------------------------------------------------------
 const TAGLINES = [
   "“I don't wanna know unless it's gonna kill me”",
-  "“That which does not kill me is fucking irrelevant to me”",
+  "“That which does not kill me, is fucking irrelevant to me”",
 ];
 const taglineEl = document.querySelector('.tagline');
 if (taglineEl) taglineEl.textContent = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
