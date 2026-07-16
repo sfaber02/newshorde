@@ -5,6 +5,27 @@ const markAllBtn = document.getElementById('markall');
 
 let view = 'unread'; // 'unread' | 'read'
 
+// Read/unread state lives in THIS browser only. Keyed by a stable per-item key so
+// it survives re-polls and DB reseeds; a different browser/device sees everything
+// unread until it marks read here.
+const READ_STORE = 'nh_read';
+let readSet = new Set(loadRead());
+
+function loadRead() {
+  try {
+    return JSON.parse(localStorage.getItem(READ_STORE) || '[]');
+  } catch {
+    return [];
+  }
+}
+function saveRead() {
+  localStorage.setItem(READ_STORE, JSON.stringify([...readSet]));
+}
+function keyOf(it) {
+  // dedupe_key is stable per alert; fall back to id.
+  return it.dedupe_key ? `${it.source_type || ''}:${it.dedupe_key}` : `id:${it.id}`;
+}
+
 const TAGS = {
   flee: 'Flee',
   recall: 'Recall',
@@ -77,22 +98,36 @@ function renderItems(items) {
 
 async function refresh() {
   try {
-    const res = await fetch(`/api/items?filter=${view}`, { cache: 'no-store' });
+    const res = await fetch('/api/items', { cache: 'no-store' });
     const { items, status } = await res.json();
-    if (!items.length) renderEmpty();
-    else renderItems(items);
+
+    // Keep the local read set bounded to alerts that still exist.
+    const present = new Set(items.map(keyOf));
+    let pruned = false;
+    for (const k of [...readSet]) if (!present.has(k)) { readSet.delete(k); pruned = true; }
+    if (pruned) saveRead();
+
+    const unread = items.filter((it) => !readSet.has(keyOf(it)));
+    const read = items.filter((it) => readSet.has(keyOf(it)));
+    const shown = view === 'read' ? read : unread;
+
+    if (!shown.length) renderEmpty();
+    else renderItems(shown);
 
     const last = status?.lastRun ? fmtTime(status.lastRun) : '—';
     if (view === 'read') {
-      meta.innerHTML = `${items.length} read · <a href="/admin">manage</a>`;
+      meta.innerHTML = `${read.length} read · <a href="/admin">manage</a>`;
     } else {
-      meta.innerHTML = `${items.length} active · checked ${esc(last)} · <a href="/admin">manage</a>`;
+      meta.innerHTML = `${unread.length} active · checked ${esc(last)} · <a href="/admin">manage</a>`;
     }
 
-    // Controls: mark-all only makes sense in the unread view with items present.
+    // Controls: toggle always available; mark-all only in unread view with items.
     toggleBtn.hidden = false;
     toggleBtn.textContent = view === 'read' ? 'Show unread' : 'Show read';
-    markAllBtn.hidden = view === 'read' || items.length === 0;
+    markAllBtn.hidden = view === 'read' || unread.length === 0;
+
+    // Stash the latest unread keys so Mark-all can act without another fetch.
+    markAllBtn._keys = unread.map(keyOf);
   } catch (err) {
     meta.textContent = 'offline — retrying…';
   }
@@ -103,13 +138,9 @@ toggleBtn.addEventListener('click', () => {
   refresh();
 });
 
-markAllBtn.addEventListener('click', async () => {
-  markAllBtn.disabled = true;
-  try {
-    await fetch('/api/items/dismiss-all', { method: 'POST' });
-  } finally {
-    markAllBtn.disabled = false;
-  }
+markAllBtn.addEventListener('click', () => {
+  for (const k of markAllBtn._keys || []) readSet.add(k);
+  saveRead();
   refresh();
 });
 

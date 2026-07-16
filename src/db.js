@@ -137,14 +137,14 @@ export function upsertItems(sourceId, items) {
   return added;
 }
 
-// Active items = not dismissed and (no expiry or not yet expired).
+// Active items = from an enabled source and not yet expired. Read/unread state is
+// tracked per-browser (localStorage), so the server serves the full live list.
 export function activeItems() {
   const rows = db
     .prepare(
       `SELECT items.*, sources.type AS source_type, sources.label AS source_label
        FROM items JOIN sources ON sources.id = items.source_id
-       WHERE items.dismissed = 0
-         AND sources.enabled = 1
+       WHERE sources.enabled = 1
          AND (items.expires_at IS NULL OR items.expires_at > datetime('now'))
        ORDER BY items.first_seen DESC`
     )
@@ -157,39 +157,14 @@ export function activeItems() {
   return rows;
 }
 
-// Already-read (dismissed) items, most recent first, capped.
-export function readItems(limit = 100) {
-  return db
-    .prepare(
-      `SELECT items.*, sources.type AS source_type, sources.label AS source_label
-       FROM items JOIN sources ON sources.id = items.source_id
-       WHERE items.dismissed = 1
-       ORDER BY items.last_seen DESC
-       LIMIT ?`
-    )
-    .all(limit);
-}
-
-export function dismissItem(id) {
-  return db.prepare('UPDATE items SET dismissed = 1 WHERE id = ?').run(id)
-    .changes > 0;
-}
-
-// Mark every currently-undismissed item as read. Returns how many were cleared.
-export function dismissAllActive() {
-  return db.prepare('UPDATE items SET dismissed = 1 WHERE dismissed = 0').run()
-    .changes;
-}
-
-// Drop dismissed/expired rows older than a cutoff to keep the table small.
+// Drop long-expired rows to keep the table small.
 export function pruneItems(days = 30) {
   return db
     .prepare(
       `DELETE FROM items
-       WHERE (expires_at IS NOT NULL AND expires_at < datetime('now', ?))
-          OR (dismissed = 1 AND last_seen < datetime('now', ?))`
+       WHERE expires_at IS NOT NULL AND expires_at < datetime('now', ?)`
     )
-    .run(`-${days} days`, `-${days} days`).changes;
+    .run(`-${days} days`).changes;
 }
 
 // ---- pull log ---------------------------------------------------------------

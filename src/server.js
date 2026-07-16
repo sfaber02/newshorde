@@ -6,9 +6,6 @@ import { z } from 'zod';
 import { config } from './config.js';
 import {
   activeItems,
-  readItems,
-  dismissItem,
-  dismissAllActive,
   listSources,
   getSource,
   createSource,
@@ -52,21 +49,10 @@ function requireAdmin(req, res, next) {
 }
 
 // ---- public feed API --------------------------------------------------------
+// Full live list of active alerts. Read/unread is a per-browser concern handled
+// client-side (localStorage), so the server always returns everything active.
 app.get('/api/items', (req, res) => {
-  const filter = req.query.filter === 'read' ? 'read' : 'unread';
-  const items = filter === 'read' ? readItems() : activeItems();
-  res.json({ items, filter, status: getStatus() });
-});
-
-app.post('/api/items/:id/dismiss', requireAdmin, (req, res) => {
-  const ok = dismissItem(Number(req.params.id));
-  res.status(ok ? 200 : 404).json({ ok });
-});
-
-// Mark all as read. Personal single-user action, so not admin-gated — works from
-// the public feed page.
-app.post('/api/items/dismiss-all', (req, res) => {
-  res.json({ dismissed: dismissAllActive() });
+  res.json({ items: activeItems(), status: getStatus() });
 });
 
 app.get('/api/status', (req, res) => {
