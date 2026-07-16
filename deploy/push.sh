@@ -13,7 +13,7 @@ echo "==> Syncing $SRC -> $HOST:$APP"
 # on disk, gitignored). --delete keeps the container in sync with local.
 tar czf - -C "$SRC" \
   --exclude node_modules --exclude data --exclude .git \
-  --exclude .playwright-mcp --exclude .DS_Store . \
+  --exclude .playwright-mcp --exclude .DS_Store --exclude .env . \
 | ssh -o BatchMode=yes "$HOST" "tar xzf - -C $APP"
 
 if [ "${1:-}" = "--deps" ]; then

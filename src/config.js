@@ -36,5 +36,9 @@ export const config = {
   port: Number(process.env.PORT || 8787),
   pollIntervalMin: Number(process.env.POLL_INTERVAL_MIN || 10),
   nwsContact: process.env.NWS_CONTACT || 'newshorde (self-hosted)',
-  adminToken: process.env.ADMIN_TOKEN || '',
+  // Admin auth. Set ADMIN_PASSWORD for a browser password prompt (HTTP Basic).
+  // ADMIN_TOKEN is an equivalent value accepted via header/query for CLI/scripts;
+  // it mirrors ADMIN_PASSWORD by default so one secret covers both.
+  adminPassword: process.env.ADMIN_PASSWORD || '',
+  adminToken: process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || '',
 };

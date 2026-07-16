@@ -17,7 +17,7 @@ async function api(path, opts = {}) {
   if (token) headers['X-Admin-Token'] = token;
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) {
-    const entered = prompt('Admin token:');
+    const entered = prompt('Admin password:');
     if (entered) {
       token = entered;
       localStorage.setItem('nh_admin_token', token);

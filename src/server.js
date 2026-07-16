@@ -26,14 +26,29 @@ const app = express();
 app.use(express.json());
 
 // ---- admin gate -------------------------------------------------------------
-// If ADMIN_TOKEN is set, admin APIs require it (header or ?token=). If unset, we
-// assume the admin path is protected upstream (Cloudflare Access) and allow.
+// Gate admin routes. If neither ADMIN_PASSWORD nor ADMIN_TOKEN is set, we assume
+// the admin path is protected upstream (e.g. Cloudflare Access) and allow through.
+// Otherwise accept either HTTP Basic auth (browser password prompt) or a token
+// header/query (CLI/scripts).
 function requireAdmin(req, res, next) {
-  if (!config.adminToken) return next();
-  const provided =
+  const { adminToken, adminPassword } = config;
+  if (!adminToken && !adminPassword) return next();
+
+  const token =
     req.get('X-Admin-Token') || req.query.token || (req.body && req.body.token);
-  if (provided === config.adminToken) return next();
-  return res.status(401).json({ error: 'admin token required' });
+  if (adminToken && token === adminToken) return next();
+
+  if (adminPassword) {
+    const hdr = req.get('Authorization') || '';
+    if (hdr.startsWith('Basic ')) {
+      const decoded = Buffer.from(hdr.slice(6), 'base64').toString();
+      const pass = decoded.slice(decoded.indexOf(':') + 1);
+      if (pass === adminPassword) return next();
+    }
+    // Prompt the browser for credentials.
+    res.set('WWW-Authenticate', 'Basic realm="NewsHorde admin"');
+  }
+  return res.status(401).json({ error: 'admin auth required' });
 }
 
 // ---- public feed API --------------------------------------------------------
@@ -118,8 +133,12 @@ app.post('/api/poll', requireAdmin, async (req, res) => {
 });
 
 // ---- static pages -----------------------------------------------------------
+// Gate the admin page BEFORE the static handler so admin.html can't be served
+// unauthenticated by express.static.
+app.get(['/admin', '/admin.html'], requireAdmin, (req, res) =>
+  res.sendFile(path.join(publicDir, 'admin.html'))
+);
 app.use(express.static(publicDir));
-app.get('/admin', (req, res) => res.sendFile(path.join(publicDir, 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
 // ---- boot -------------------------------------------------------------------
