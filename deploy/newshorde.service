@@ -1,0 +1,18 @@
+[Unit]
+Description=NewsHorde — ruthlessly curated anti-news feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/newshorde
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=-/opt/newshorde/.env
+User=newshorde
+Group=newshorde
+
+[Install]
+WantedBy=multi-user.target

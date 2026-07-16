@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0d10" />
+  <title>NewsHorde · admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">NewsHorde <small>· admin</small></div>
+      <div class="meta"><a href="/">← back to feed</a></div>
+    </header>
+
+    <section class="admin-section">
+      <h2>Add a source</h2>
+      <label for="type">Source type</label>
+      <select id="type"></select>
+      <div id="type-desc" class="field-help"></div>
+      <div id="fields"></div>
+      <button class="btn" id="add">Add source</button>
+    </section>
+
+    <section class="admin-section">
+      <h2>Sources <button class="btn ghost" id="poll" style="margin:0 0 0 8px;padding:4px 10px">Poll now</button></h2>
+      <div id="sources"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="/admin.js"></script>
+</body>
+</html>

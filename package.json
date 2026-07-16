@@ -1,0 +1,23 @@
+{
+  "name": "newshorde",
+  "version": "0.1.0",
+  "description": "A ruthlessly curated anti-news feed: only life-safety alerts, recalls, and opt-in personal signals.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "poll": "node scripts/poll-once.js",
+    "test-source": "node scripts/test-source.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.24.1"
+  }
+}
