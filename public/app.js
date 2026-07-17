@@ -47,6 +47,9 @@ function wxEmoji(short, isDay = true) {
   if (/(sun|clear|fair)/.test(s)) return isDay ? '☀️' : '🌙';
   return isDay ? '🌡️' : '🌙';
 }
+
+// AQI color by level (0 good … 5 hazardous), readable on the dark background.
+const AQI_COLORS = ['#34d399', '#eab308', '#f97316', '#ef4444', '#a855f7', '#e11d48'];
 function tagFor(it) {
   if (it.category === 'flee') {
     if (it.severity === 'critical') return 'Flee';
@@ -110,13 +113,21 @@ async function loadWeather() {
 
 function renderWeather(d) {
   const cur = d.current;
-  const alerts = (d.alerts || []).map((a) => {
+  const aq = d.airQuality;
+
+  const nwsAlerts = (d.alerts || []).map((a) => {
     const cls = /extreme|severe/i.test(a.severity || '') ? '' : ' moderate';
     const label = `⚠ ${esc(a.event)}${a.headline ? ' — ' + esc(a.headline) : ''}`;
     return a.link
       ? `<a class="wx-alert${cls}" href="${esc(a.link)}" target="_blank" rel="noopener">${label}</a>`
       : `<div class="wx-alert${cls}">${label}</div>`;
   }).join('');
+
+  // Surface bad air as its own banner when unhealthy — even if NWS issued no alert.
+  const aqBanner = aq && aq.level >= 2
+    ? `<div class="wx-alert" style="background:${AQI_COLORS[aq.level]}22;border-color:${AQI_COLORS[aq.level]}66;color:${AQI_COLORS[aq.level]}">😷 Air quality ${esc(aq.category)} — AQI ${aq.usAqi}${aq.pm25 != null ? `, PM2.5 ${aq.pm25}` : ''}</div>`
+    : '';
+  const alerts = aqBanner + nwsAlerts;
 
   const hourly = (d.hourly || []).map((h) => `
     <div class="wx-hour">
@@ -149,10 +160,11 @@ function renderWeather(d) {
           <div class="wx-loc">${esc(d.location)}</div>
           <div class="wx-cond">${cur ? esc(cur.short) : ''}</div>
         </div>
-        ${cur ? `<div class="wx-stats">
-          <div>💨 <b>${esc(cur.wind || '—')}</b></div>
-          <div>🌧 <b>${cur.precip != null ? cur.precip + '%' : '—'}</b> precip</div>
-        </div>` : ''}
+        <div class="wx-stats">
+          ${cur ? `<div>💨 <b>${esc(cur.wind || '—')}</b></div>
+          <div>🌧 <b>${cur.precip != null ? cur.precip + '%' : '—'}</b> precip</div>` : ''}
+          ${aq ? `<div>😷 AQI <b style="color:${AQI_COLORS[aq.level]}">${aq.usAqi}</b> ${esc(aq.category.replace('for Sensitive Groups', '(sensitive)'))}</div>` : ''}
+        </div>
       </div>
       ${alerts ? `<div class="wx-alerts">${alerts}</div>` : ''}
       ${hourly ? `<div class="wx-section-label">Next hours</div><div class="wx-hourly">${hourly}</div>` : ''}

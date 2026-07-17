@@ -102,6 +102,23 @@ function mapDay(p) {
     short: p.shortForecast,
   };
 }
+// US EPA AQI bucket -> label + level (0 good … 5 hazardous).
+function aqiInfo(aqi, pm25) {
+  if (aqi == null) return null;
+  const buckets = [
+    [50, 'Good', 0],
+    [100, 'Moderate', 1],
+    [150, 'Unhealthy for Sensitive Groups', 2],
+    [200, 'Unhealthy', 3],
+    [300, 'Very Unhealthy', 4],
+    [Infinity, 'Hazardous', 5],
+  ];
+  for (const [max, category, level] of buckets) {
+    if (aqi <= max) {
+      return { usAqi: Math.round(aqi), pm25: pm25 != null ? Math.round(pm25) : null, category, level };
+    }
+  }
+}
 function mapAlert(f, humanUrl) {
   const p = f.properties || {};
   return {
@@ -127,12 +144,17 @@ async function getForecast(lat, lon) {
   const loc = pp.relativeLocation?.properties;
   const label = loc ? `${loc.city}, ${loc.state}` : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
 
-  const [daily, hourly, alertsRaw] = await Promise.all([
+  const [daily, hourly, alertsRaw, airRaw] = await Promise.all([
     fetchJson(pp.forecast, { headers: nwsHeaders }).catch(() => null),
     fetchJson(pp.forecastHourly, { headers: nwsHeaders }).catch(() => null),
     fetchJson(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, {
       headers: nwsHeaders,
     }).catch(() => null),
+    // EPA-style US AQI from Open-Meteo (no key). Catches bad air even when NWS
+    // issued no formal Air Quality Alert.
+    fetchJson(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5`
+    ).catch(() => null),
   ]);
 
   const hp = hourly?.properties?.periods || [];
@@ -146,6 +168,7 @@ async function getForecast(lat, lon) {
     hourly: hp.slice(0, 12).map(mapHour),
     daily: dp.slice(0, 6).map(mapDay),
     alerts: (alertsRaw?.features || []).map((f) => mapAlert(f, forecastUrl)),
+    airQuality: aqiInfo(airRaw?.current?.us_aqi, airRaw?.current?.pm2_5),
   };
   forecastCache.set(key, { at: Date.now(), data });
   return data;
