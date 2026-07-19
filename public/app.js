@@ -278,7 +278,7 @@ function renderEmpty() {
 
 function renderItems(items) {
   const readClass = view === 'read' ? ' read' : '';
-  const intro = `<div class="feed-intro">and here's what's actually trying to end you:</div>`;
+  const intro = `<div class="feed-intro">oh, and this stuff could actually end you, so watch out:</div>`;
   const cards = items.map((it) => {
     const when = fmtTime(it.starts_at || it.first_seen);
     const link = it.link
