@@ -191,7 +191,7 @@ html, body {
 .tomato-fill {
   position: absolute;
   inset: 0;
-  background: url(/tomato.png) 0 0 / 22px 22px repeat;
+  background: url(/tomato3.png) 0 0 / 22px 22px repeat;
   opacity: 0.95;
 }
 /* inline tomato used in the ketchup blurb, sized like an emoji */

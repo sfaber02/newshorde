@@ -191,7 +191,7 @@ function renderHeadlines(d) {
     const moveColor = up ? '#ff6b6b' : '#30d158';
     const word = up ? 'up' : 'down';
     const asOf = new Date(k.asOf + 'T00:00:00').toLocaleDateString([], { month: 'long', year: 'numeric' });
-    sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month <img class="tomato-emoji" src="/tomato.png" alt="tomato" />.</span>`);
+    sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month <img class="tomato-emoji" src="/tomato3.png" alt="tomato" />.</span>`);
     graph = `
       <div class="ketchup-wrap">
         ${sparkline(k.series)}
