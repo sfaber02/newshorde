@@ -271,27 +271,15 @@ locModal.addEventListener('click', (e) => { if (e.target === locModal) closeLocM
 // ============================================================================
 // FEED
 // ============================================================================
+// Nothing to show = show nothing. No "ALL CLEAR" — just the headline + footer.
 function renderEmpty() {
-  if (view === 'read') {
-    feed.innerHTML = `
-      <div class="allclear">
-        <div class="glyph">📭</div>
-        <div class="big" style="color:var(--muted)">Nothing read yet</div>
-        <div class="sub">Items you clear will show up here.</div>
-      </div>`;
-    return;
-  }
-  feed.innerHTML = `
-    <div class="allclear">
-      <div class="glyph">🌿</div>
-      <div class="big">ALL CLEAR</div>
-      <div class="sub">Nothing needs your attention. Go back to your life.</div>
-    </div>`;
+  feed.innerHTML = '';
 }
 
 function renderItems(items) {
   const readClass = view === 'read' ? ' read' : '';
-  feed.innerHTML = items.map((it) => {
+  const intro = `<div class="feed-intro">and these are the things that might actually end you:</div>`;
+  feed.innerHTML = intro + items.map((it) => {
     const when = fmtTime(it.starts_at || it.first_seen);
     const link = it.link
       ? `<a href="${esc(it.link)}" target="_blank" rel="noopener">details ↗</a>`
