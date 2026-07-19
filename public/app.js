@@ -183,7 +183,13 @@ function renderHeadlines(d) {
     sentences.push(`<span class="sx" style="color:#9aa3b2">the weather's a mystery until you <button class="linkbtn" id="hlSetLoc">set your location</button>.</span>`);
   }
 
-  // 3. The price of ketchup — real BLS producer price index.
+  // 3. Did any nukes go off? (peace sign = we're good)
+  if (d.nuke) {
+    const color = d.nuke.clear ? 'var(--clear)' : '#ff3b30';
+    sentences.push(`<span class="sx" style="color:${color}">${esc(d.nuke.sentence)}</span>`);
+  }
+
+  // 4. The price of ketchup — real BLS producer price index.
   let graph = '';
   if (d.ketchup) {
     const k = d.ketchup;

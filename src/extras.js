@@ -134,3 +134,37 @@ export async function iggyStatus() {
   iggyCache = { at: Date.now(), data };
   return data;
 }
+
+// ---- has nuclear war broken out? --------------------------------------------
+// Nuclear detonations register on seismographs and land in the USGS catalog
+// tagged eventtype "nuclear explosion" (that's how NK's tests show up). So we
+// ask USGS if any have popped in the last 30 days. Silence = good news. Cached.
+let nukeCache = null;
+const NUKE_TTL = 30 * 60 * 1000;
+
+export async function nukeStatus() {
+  if (nukeCache && Date.now() - nukeCache.at < NUKE_TTL) return nukeCache.data;
+
+  let event = null;
+  try {
+    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=nuclear%20explosion&starttime=${start}&limit=5`;
+    const j = await fetchJson(url, { headers: { 'User-Agent': 'NewsHorde/1.0 (nuke-watch)' } });
+    const feats = (j.features || []).sort((a, b) => b.properties.time - a.properties.time);
+    if (feats.length) event = feats[0].properties;
+  } catch {
+    event = null; // no news is good news
+  }
+
+  const data = event
+    ? {
+        clear: false,
+        sentence: `💣 a nuke just went off near ${event.place} (M${event.mag}). godspeed 👎`,
+        place: event.place,
+        when: fmtDate(new Date(event.time)),
+      }
+    : { clear: true, sentence: 'no nukes went off today ☮️' };
+
+  nukeCache = { at: Date.now(), data };
+  return data;
+}

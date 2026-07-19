@@ -17,7 +17,7 @@ import {
 } from './db.js';
 import { pluginCatalog, getPlugin } from './sources/index.js';
 import { pollAll, pollSource, getStatus } from './poller.js';
-import { weatherHeadline, ketchupData, iggyStatus } from './extras.js';
+import { weatherHeadline, ketchupData, iggyStatus, nukeStatus } from './extras.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '..', 'public');
@@ -208,8 +208,8 @@ app.get('/api/headlines', async (req, res) => {
       weather = null;
     }
   }
-  const [iggy, ketchup] = await Promise.all([iggyStatus(), ketchupData()]);
-  res.json({ weather, alerts, airQuality, ketchup, iggy });
+  const [iggy, ketchup, nuke] = await Promise.all([iggyStatus(), ketchupData(), nukeStatus()]);
+  res.json({ weather, alerts, airQuality, ketchup, iggy, nuke });
 });
 
 // Geocode a city/ZIP to lat/lon for manual location entry (US only — NWS is US).
