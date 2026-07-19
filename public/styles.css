@@ -88,16 +88,39 @@ html, body {
 .allclear .sub { color: var(--muted); margin-top: 8px; font-size: 15px; }
 .allclear .glyph { font-size: 56px; margin-bottom: 8px; }
 
-/* ominous intro line above the feed list */
+/* ominous rainbow intro line above the feed list */
 .feed-intro {
   font-weight: 900;
   letter-spacing: -0.02em;
   line-height: 1.08;
   font-size: clamp(22px, 5vw, 36px);
-  color: var(--flee);
   margin: 4px 0 20px;
   text-wrap: balance;
+  background: linear-gradient(92deg, #ff3b30, #ff9f0a, #ffd60a, #30d158, #5ac8fa, #bf5af2, #ff3b30);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
+
+/* huge, headline-font "mark it all read" that closes out the feed */
+.mark-all {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 24px 0 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  font-size: clamp(30px, 7vw, 52px);
+  color: var(--clear);
+  transition: color .15s;
+}
+.mark-all:hover { color: #eafff0; }
 
 /* cards */
 .card {

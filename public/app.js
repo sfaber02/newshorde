@@ -1,11 +1,11 @@
 const feed = document.getElementById('feed');
 const meta = document.getElementById('meta');
 const toggleBtn = document.getElementById('toggle');
-const markAllBtn = document.getElementById('markall');
 const weatherEl = document.getElementById('weather');
 const locBtn = document.getElementById('loc');
 
 let view = 'unread'; // 'unread' | 'read'
+let unreadKeys = []; // keys of the currently-shown unread items (for mark-all)
 
 // ---- local per-browser state ------------------------------------------------
 const READ_STORE = 'nh_read';
@@ -278,8 +278,8 @@ function renderEmpty() {
 
 function renderItems(items) {
   const readClass = view === 'read' ? ' read' : '';
-  const intro = `<div class="feed-intro">and these are the things that might actually end you:</div>`;
-  feed.innerHTML = intro + items.map((it) => {
+  const intro = `<div class="feed-intro">and here's what's actually trying to end you:</div>`;
+  const cards = items.map((it) => {
     const when = fmtTime(it.starts_at || it.first_seen);
     const link = it.link
       ? `<a href="${esc(it.link)}" target="_blank" rel="noopener">details ↗</a>`
@@ -296,6 +296,21 @@ function renderItems(items) {
         </div>
       </article>`;
   }).join('');
+
+  // A huge, headline-font "mark it all read" to close out the list (unread view).
+  const markAll = view === 'unread'
+    ? `<button class="mark-all" id="markAllBig">ok, mark it all read 🙈</button>`
+    : '';
+
+  feed.innerHTML = intro + cards + markAll;
+  const btn = document.getElementById('markAllBig');
+  if (btn) btn.onclick = markAllRead;
+}
+
+function markAllRead() {
+  for (const k of unreadKeys) readSet.add(k);
+  saveRead();
+  refresh();
 }
 
 async function refresh() {
@@ -313,6 +328,7 @@ async function refresh() {
     const unread = items.filter((it) => !readSet.has(keyOf(it)));
     const read = items.filter((it) => readSet.has(keyOf(it)));
     const shown = view === 'read' ? read : unread;
+    unreadKeys = unread.map(keyOf);
 
     if (!shown.length) renderEmpty();
     else renderItems(shown);
@@ -324,8 +340,6 @@ async function refresh() {
 
     toggleBtn.hidden = false;
     toggleBtn.textContent = view === 'read' ? 'Show unread' : 'Show read';
-    markAllBtn.hidden = view === 'read' || unread.length === 0;
-    markAllBtn._keys = unread.map(keyOf);
   } catch (err) {
     meta.textContent = 'offline — retrying…';
   }
@@ -333,11 +347,6 @@ async function refresh() {
 
 toggleBtn.addEventListener('click', () => {
   view = view === 'read' ? 'unread' : 'read';
-  refresh();
-});
-markAllBtn.addEventListener('click', () => {
-  for (const k of markAllBtn._keys || []) readSet.add(k);
-  saveRead();
   refresh();
 });
 
