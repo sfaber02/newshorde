@@ -151,8 +151,51 @@ header.top {
 }
 .card .foot button:hover { color: var(--fg); border-color: var(--muted); }
 
-/* weather panel */
+/* headlines — three big dumb colorful sentences that just run together */
 #weather:empty { display: none; }
+.headlines { margin-bottom: 26px; }
+.blob {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  font-size: clamp(30px, 7vw, 52px);
+}
+/* each sentence is inline so they wrap however the hell they want */
+.sx { display: inline; }
+.sx .linkbtn {
+  background: none; border: none; padding: 0;
+  color: inherit; font: inherit; text-decoration: underline; cursor: pointer;
+}
+
+/* Iggy gets a gold gradient when alive, a somber gray when not. */
+.sx-iggy {
+  background: linear-gradient(92deg, #ffd166, #ff8fab, #a06cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.sx-iggy.dead {
+  background: none;
+  color: var(--muted);
+}
+
+/* ketchup market graph */
+.ketchup-wrap { margin-top: 18px; }
+.ketchup-graph {
+  display: block;
+  width: 100%;
+  height: 60px;
+  overflow: visible;
+}
+.ketchup-cap {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* legacy weather panel (unused, kept for safety) */
 .wx {
   background: var(--card);
   border: 1px solid var(--line);

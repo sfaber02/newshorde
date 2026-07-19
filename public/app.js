@@ -12,6 +12,7 @@ const READ_STORE = 'nh_read';
 const LOC_STORE = 'nh_location';
 let readSet = new Set(loadJSON(READ_STORE, []));
 let userLoc = loadJSON(LOC_STORE, null); // { lat, lon, label }
+let wxItems = []; // location weather/air alerts, merged into the feed client-side
 
 function loadJSON(k, fallback) {
   try {
@@ -34,22 +35,6 @@ function keyOf(it) {
 // ---- shared helpers ---------------------------------------------------------
 const TAGS = { flee: 'Flee', recall: 'Recall', outbreak: 'Outbreak', quake: 'Quake', personal: 'For you' };
 
-// Map an NWS shortForecast string to a simple emoji (day/night aware).
-function wxEmoji(short, isDay = true) {
-  const s = (short || '').toLowerCase();
-  if (s.includes('thunder')) return '⛈️';
-  if (/(snow|flurr|sleet|ice|wintry|blizzard)/.test(s)) return '🌨️';
-  if (/(rain|shower|drizzle)/.test(s)) return '🌧️';
-  if (/(fog|haze|smoke|mist)/.test(s)) return '🌫️';
-  if (s.includes('wind')) return '💨';
-  if (/(partly|mostly sunny|mostly clear)/.test(s)) return isDay ? '⛅' : '🌙';
-  if (/(cloud|overcast)/.test(s)) return '☁️';
-  if (/(sun|clear|fair)/.test(s)) return isDay ? '☀️' : '🌙';
-  return isDay ? '🌡️' : '🌙';
-}
-
-// AQI color by level (0 good … 5 hazardous), readable on the dark background.
-const AQI_COLORS = ['#34d399', '#eab308', '#f97316', '#ef4444', '#a855f7', '#e11d48'];
 function tagFor(it) {
   if (it.category === 'flee') {
     if (it.severity === 'critical') return 'Flee';
@@ -74,103 +59,142 @@ function fmtHour(iso) {
 }
 
 // ============================================================================
-// WEATHER
+// HEADLINES — the only three things that matter
 // ============================================================================
 function updateLocButton() {
   locBtn.textContent = userLoc ? `📍 ${userLoc.label}` : '📍 Location';
 }
 
-async function loadWeather() {
-  if (!userLoc) {
-    weatherEl.innerHTML = `
-      <div class="wx">
-        <div class="wx-head">
-          <div class="wx-meta">
-            <div class="wx-loc">📍 Set your location</div>
-            <div class="wx-cond">Get a local forecast + weather alerts</div>
-          </div>
-          <button class="btn" id="wxSetLoc" style="margin-left:auto">Set location</button>
-        </div>
-      </div>`;
-    document.getElementById('wxSetLoc').onclick = openLocModal;
-    return;
-  }
+// Color per weather mood.
+const MOOD_COLORS = {
+  hot: '#ff6b35', cold: '#4dd0ff', rain: '#5b8def', snow: '#c9ecff',
+  storm: '#b16cff', nice: '#ffd60a', chilly: '#8fbcff', meh: '#9aa3b2',
+};
+const MOOD_EMOJI = {
+  hot: '🥵', cold: '🥶', rain: '🌧️', snow: '❄️',
+  storm: '⛈️', nice: '☀️', chilly: '🧥', meh: '🤷',
+};
+
+async function loadHeadlines() {
   try {
-    const res = await fetch(`/api/forecast?lat=${userLoc.lat}&lon=${userLoc.lon}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('forecast unavailable');
+    const q = userLoc ? `?lat=${userLoc.lat}&lon=${userLoc.lon}` : '';
+    const res = await fetch(`/api/headlines${q}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('headlines unavailable');
     const data = await res.json();
     // Upgrade a coarse label (e.g. from geolocation) to the real place name.
-    if (data.location && data.location !== userLoc.label) {
-      userLoc.label = data.location;
+    if (data.weather?.location && data.weather.location !== userLoc?.label) {
+      userLoc.label = data.weather.location;
       saveLoc();
       updateLocButton();
     }
-    renderWeather(data);
-  } catch (err) {
-    weatherEl.innerHTML = `<div class="wx"><div class="wx-cond">Couldn't load the forecast for ${esc(userLoc.label)}. ${esc(String(err.message))}</div></div>`;
+    renderHeadlines(data);
+    // Location weather alerts + unhealthy air become feed cards (read/unread like
+    // recalls). Location is client-side, so we merge them in here, not server-side.
+    wxItems = mapWxItems(data.alerts, data.airQuality);
+    refresh();
+  } catch {
+    /* leave whatever's there */
   }
 }
 
-function renderWeather(d) {
-  const cur = d.current;
-  const aq = d.airQuality;
+// Turn NWS alerts + a bad AQI reading into feed-item-shaped cards.
+function mapWxItems(alerts, aq) {
+  const out = [];
+  for (const a of alerts || []) {
+    const sev = /extreme/i.test(a.severity || '')
+      ? 'critical'
+      : /severe/i.test(a.severity || '')
+      ? 'warning'
+      : 'info';
+    out.push({
+      source_type: 'nws_wx',
+      dedupe_key: `${a.event}|${a.area || ''}|${a.expires || ''}`,
+      category: 'flee',
+      severity: sev,
+      title: a.event,
+      body: a.headline || '',
+      link: a.link || '',
+      starts_at: null,
+      first_seen: null,
+      source_label: 'Weather · ' + (userLoc?.label || 'your area'),
+    });
+  }
+  if (aq && aq.level >= 2) {
+    out.push({
+      source_type: 'aqi',
+      dedupe_key: `aqi|${aq.category}`,
+      category: 'flee',
+      severity: aq.level >= 3 ? 'warning' : 'info',
+      title: `Air quality: ${aq.category} (AQI ${aq.usAqi})`,
+      body: `😷 Unhealthy air${aq.pm25 != null ? ` — PM2.5 ${aq.pm25}` : ''}. Limit time outside.`,
+      link: '',
+      starts_at: null,
+      first_seen: null,
+      source_label: 'Air quality · ' + (userLoc?.label || 'your area'),
+    });
+  }
+  return out;
+}
 
-  const nwsAlerts = (d.alerts || []).map((a) => {
-    const cls = /extreme|severe/i.test(a.severity || '') ? '' : ' moderate';
-    const label = `⚠ ${esc(a.event)}${a.headline ? ' — ' + esc(a.headline) : ''}`;
-    return a.link
-      ? `<a class="wx-alert${cls}" href="${esc(a.link)}" target="_blank" rel="noopener">${label}</a>`
-      : `<div class="wx-alert${cls}">${label}</div>`;
-  }).join('');
+// A tiny inline sparkline for the ketchup market.
+function sparkline(series, color) {
+  const vals = series.map((p) => p.price);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = max - min || 1;
+  const W = 100, H = 26;
+  const pts = vals.map((v, i) => {
+    const x = (i / (vals.length - 1)) * W;
+    const y = H - ((v - min) / span) * (H - 4) - 2;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const area = `0,${H} ${pts.join(' ')} ${W},${H}`;
+  return `
+    <svg class="ketchup-graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points="${area}" fill="${color}22" />
+      <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.4"
+        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+    </svg>`;
+}
 
-  // Surface bad air as its own banner when unhealthy — even if NWS issued no alert.
-  const aqBanner = aq && aq.level >= 2
-    ? `<div class="wx-alert" style="background:${AQI_COLORS[aq.level]}22;border-color:${AQI_COLORS[aq.level]}66;color:${AQI_COLORS[aq.level]}">😷 Air quality ${esc(aq.category)} — AQI ${aq.usAqi}${aq.pm25 != null ? `, PM2.5 ${aq.pm25}` : ''}</div>`
-    : '';
-  const alerts = aqBanner + nwsAlerts;
+function renderHeadlines(d) {
+  // Three big colorful sentences that just run together and wrap however they
+  // damn well please. No tiles. Graph tags along under the ketchup line.
+  const sentences = [];
 
-  const hourly = (d.hourly || []).map((h) => `
-    <div class="wx-hour">
-      <div class="h">${esc(fmtHour(h.time))}</div>
-      <div class="emoji">${wxEmoji(h.short, h.isDaytime)}</div>
-      <div class="t">${h.temp}°</div>
-      ${h.precip != null ? `<div class="p">${h.precip}%</div>` : '<div class="p">&nbsp;</div>'}
-      <div class="w">${esc((h.wind || '').replace(' mph', ''))}</div>
-    </div>`).join('');
+  // 1. Iggy Pop — the important one.
+  if (d.iggy) {
+    const cls = d.iggy.alive ? 'sx-iggy' : 'sx-iggy dead';
+    sentences.push(`<span class="sx ${cls}">${esc(d.iggy.sentence)}</span>`);
+  }
 
-  const daily = (d.daily || []).map((p) => `
-    <div class="wx-day">
-      <div class="name">${esc(p.name)}</div>
-      <div class="demoji">${wxEmoji(p.short, p.isDaytime)}</div>
-      <div class="dshort">${esc(p.short)}</div>
-      <div class="dp">${p.precip != null ? p.precip + '%' : ''}</div>
-      <div class="dtemp">${p.temp}°</div>
-    </div>`).join('');
+  // 2. The weather vibe.
+  if (d.weather) {
+    const color = MOOD_COLORS[d.weather.mood] || '#9aa3b2';
+    const emoji = MOOD_EMOJI[d.weather.mood] || '🌡️';
+    sentences.push(`<span class="sx" style="color:${color}">${esc(d.weather.text)} ${emoji}</span>`);
+  } else {
+    sentences.push(`<span class="sx" style="color:#9aa3b2">the weather's a mystery until you <button class="linkbtn" id="hlSetLoc">set your location</button>.</span>`);
+  }
 
-  const fc = d.forecastUrl
-    ? `<a class="wx-full" href="${esc(d.forecastUrl)}" target="_blank" rel="noopener">Full forecast ↗</a>`
-    : '';
+  // 3. The price of ketchup — real BLS producer price index.
+  let graph = '';
+  if (d.ketchup) {
+    const k = d.ketchup;
+    const up = k.direction === 'up';
+    const moveColor = up ? '#ff6b6b' : '#30d158';
+    const word = up ? 'up' : 'down';
+    const asOf = new Date(k.asOf + 'T00:00:00').toLocaleDateString([], { month: 'long', year: 'numeric' });
+    sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month 🍅.</span>`);
+    graph = `
+      <div class="ketchup-wrap">
+        ${sparkline(k.series, '#e63946')}
+        <div class="ketchup-cap">month over month · ${esc(k.source)} · ${esc(asOf)}</div>
+      </div>`;
+  }
 
-  weatherEl.innerHTML = `
-    <div class="wx">
-      <div class="wx-head">
-        ${cur ? `<div class="wx-emoji">${wxEmoji(cur.short, cur.isDaytime)}</div>` : ''}
-        ${cur ? `<div class="wx-temp">${cur.temp}°</div>` : ''}
-        <div class="wx-meta">
-          <div class="wx-loc">${esc(d.location)}</div>
-          <div class="wx-cond">${cur ? esc(cur.short) : ''}</div>
-        </div>
-        <div class="wx-stats">
-          ${cur ? `<div>💨 <b>${esc(cur.wind || '—')}</b></div>
-          <div>🌧 <b>${cur.precip != null ? cur.precip + '%' : '—'}</b> precip</div>` : ''}
-          ${aq ? `<div>😷 AQI <b style="color:${AQI_COLORS[aq.level]}">${aq.usAqi}</b> ${esc(aq.category.replace('for Sensitive Groups', '(sensitive)'))}</div>` : ''}
-        </div>
-      </div>
-      ${alerts ? `<div class="wx-alerts">${alerts}</div>` : ''}
-      ${hourly ? `<div class="wx-section-label">Next hours</div><div class="wx-hourly">${hourly}</div>` : ''}
-      ${daily ? `<div class="wx-section-label">Next days</div><div class="wx-daily">${daily}</div>` : ''}
-      ${fc}
-    </div>`;
+  weatherEl.innerHTML = `<div class="headlines"><p class="blob">${sentences.join(' ')}</p>${graph}</div>`;
+  const setLoc = document.getElementById('hlSetLoc');
+  if (setLoc) setLoc.onclick = openLocModal;
 }
 
 // ---- location modal ---------------------------------------------------------
@@ -193,7 +217,7 @@ async function setLoc(lat, lon, label) {
   saveLoc();
   updateLocButton();
   closeLocModal();
-  await loadWeather();
+  await loadHeadlines();
 }
 
 document.getElementById('locGeo').addEventListener('click', () => {
@@ -225,7 +249,7 @@ document.getElementById('locClear').addEventListener('click', () => {
   saveLoc();
   updateLocButton();
   closeLocModal();
-  loadWeather();
+  loadHeadlines();
 });
 document.getElementById('locCancel').addEventListener('click', closeLocModal);
 locBtn.addEventListener('click', openLocModal);
@@ -276,7 +300,9 @@ function renderItems(items) {
 async function refresh() {
   try {
     const res = await fetch('/api/items', { cache: 'no-store' });
-    const { items, status } = await res.json();
+    const { items: serverItems, status } = await res.json();
+    // Location weather/air alerts ride at the top of the same feed.
+    const items = [...wxItems, ...serverItems];
 
     const present = new Set(items.map(keyOf));
     let pruned = false;
@@ -323,7 +349,7 @@ const taglineEl = document.querySelector('.tagline');
 if (taglineEl) taglineEl.textContent = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
 
 updateLocButton();
-loadWeather();
+loadHeadlines();
 refresh();
 setInterval(refresh, 60000);
-setInterval(loadWeather, 10 * 60 * 1000);
+setInterval(loadHeadlines, 10 * 60 * 1000);

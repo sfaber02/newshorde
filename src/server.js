@@ -17,6 +17,7 @@ import {
 } from './db.js';
 import { pluginCatalog, getPlugin } from './sources/index.js';
 import { pollAll, pollSource, getStatus } from './poller.js';
+import { weatherHeadline, ketchupData, iggyStatus } from './extras.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '..', 'public');
@@ -185,6 +186,30 @@ app.get('/api/forecast', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: String(e.message) });
   }
+});
+
+// ---- absurd headlines -------------------------------------------------------
+// The three things that actually matter: the weather vibe, the price of ketchup,
+// and whether Iggy Pop is still with us. Weather needs a location; the rest don't.
+app.get('/api/headlines', async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+  let weather = null;
+  let alerts = [];
+  let airQuality = null;
+  if (isFinite(lat) && isFinite(lon)) {
+    try {
+      const f = await getForecast(lat, lon);
+      weather = weatherHeadline(f);
+      // Keep the life-safety stuff: real NWS alerts + unhealthy air (level >= 2).
+      alerts = f.alerts || [];
+      airQuality = f.airQuality;
+    } catch {
+      weather = null;
+    }
+  }
+  const [iggy, ketchup] = await Promise.all([iggyStatus(), ketchupData()]);
+  res.json({ weather, alerts, airQuality, ketchup, iggy });
 });
 
 // Geocode a city/ZIP to lat/lon for manual location entry (US only — NWS is US).
