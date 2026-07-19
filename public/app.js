@@ -136,24 +136,30 @@ function mapWxItems(alerts, aq) {
   return out;
 }
 
-// A tiny inline sparkline for the ketchup market.
-function sparkline(series, color) {
+// A sparkline for the ketchup market — the area under the line is filled with a
+// wall of actual tomatoes (HTML emoji, clipped to the area so they stay round),
+// with the price line drawn on top. Jank as funk, as requested.
+function sparkline(series) {
   const vals = series.map((p) => p.price);
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = max - min || 1;
-  const W = 100, H = 26;
-  const pts = vals.map((v, i) => {
-    const x = (i / (vals.length - 1)) * W;
-    const y = H - ((v - min) / span) * (H - 4) - 2;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  });
-  const area = `0,${H} ${pts.join(' ')} ${W},${H}`;
+  const n = vals.length;
+  const pts = vals.map((v, i) => ({
+    x: (i / (n - 1)) * 100,
+    y: 6 + (1 - (v - min) / span) * 88, // % from top, 6..94
+  }));
+  const line = pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+  // Clip the tomato layer to everything below the price line.
+  const clip = `polygon(0% 100%, ${pts.map((p) => `${p.x.toFixed(2)}% ${p.y.toFixed(2)}%`).join(', ')}, 100% 100%)`;
+  const tomatoes = '🍅'.repeat(320);
   return `
-    <svg class="ketchup-graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-      <polygon points="${area}" fill="${color}22" />
-      <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.4"
-        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-    </svg>`;
+    <div class="ketchup-graph">
+      <div class="tomato-fill" style="clip-path:${clip};-webkit-clip-path:${clip}">${tomatoes}</div>
+      <svg class="ketchup-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points="${line}" fill="none" stroke="#e63946" stroke-width="2"
+          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+      </svg>
+    </div>`;
 }
 
 function renderHeadlines(d) {
@@ -167,11 +173,13 @@ function renderHeadlines(d) {
     sentences.push(`<span class="sx ${cls}">${esc(d.iggy.sentence)}</span>`);
   }
 
-  // 2. The weather vibe.
+  // 2. The weather vibe (with the city tacked on).
   if (d.weather) {
     const color = MOOD_COLORS[d.weather.mood] || '#9aa3b2';
     const emoji = MOOD_EMOJI[d.weather.mood] || '🌡️';
-    sentences.push(`<span class="sx" style="color:${color}">${esc(d.weather.text)} ${emoji}</span>`);
+    const city = (d.weather.location || '').split(',')[0].trim();
+    const where = city ? ` in ${city}` : '';
+    sentences.push(`<span class="sx" style="color:${color}">${esc(d.weather.text + where)} ${emoji}</span>`);
   } else {
     sentences.push(`<span class="sx" style="color:#9aa3b2">the weather's a mystery until you <button class="linkbtn" id="hlSetLoc">set your location</button>.</span>`);
   }
@@ -187,7 +195,7 @@ function renderHeadlines(d) {
     sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month 🍅.</span>`);
     graph = `
       <div class="ketchup-wrap">
-        ${sparkline(k.series, '#e63946')}
+        ${sparkline(k.series)}
         <div class="ketchup-cap">month over month · ${esc(k.source)} · ${esc(asOf)}</div>
       </div>`;
   }

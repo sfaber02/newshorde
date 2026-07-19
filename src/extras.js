@@ -17,16 +17,17 @@ export function weatherHeadline(forecast) {
   const temp = day.temp;
   const precip = day.precip || 0;
 
+  // Phrases are written to read naturally with " in <City>" tacked on the end.
   let mood, text;
   if (/thunder/.test(short)) {
     mood = 'storm';
-    text = "it's gonna storm — stay the hell inside";
+    text = "it's gonna storm like hell";
   } else if (/(snow|flurr|sleet|blizzard|wintry|ice)/.test(short)) {
     mood = 'snow';
-    text = 'snow. cool cool cool cool cool.';
+    text = "it's gonna snow";
   } else if (/(rain|shower|drizzle)/.test(short) || precip >= 55) {
     mood = 'rain';
-    text = "it's gonna rain";
+    text = "it's gonna piss rain";
   } else if (temp >= 90) {
     mood = 'hot';
     text = "it'll be hot as shit";
@@ -35,16 +36,16 @@ export function weatherHeadline(forecast) {
     text = "it's gonna be cold as balls";
   } else if (temp >= 60 && temp <= 85 && /(sun|clear|fair|nice)/.test(short)) {
     mood = 'nice';
-    text = "it's gonna be nice out!";
+    text = "it's gonna be nice out";
   } else if (temp <= 50) {
     mood = 'chilly';
-    text = "kinda chilly out, bundle up i guess";
+    text = "it's gonna be kinda chilly";
   } else if (/(cloud|overcast)/.test(short)) {
     mood = 'meh';
     text = "it'll be gray and forgettable";
   } else {
     mood = 'meh';
-    text = "it'll be fine out, probably";
+    text = "it'll be whatever out";
   }
   return { text, mood, temp, location: forecast.location || null };
 }

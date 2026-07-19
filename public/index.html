@@ -10,7 +10,10 @@
 </head>
 <body>
   <div class="wrap">
-    <header class="top">
+    <section id="weather"><!-- headline blob rendered by app.js --></section>
+    <main id="feed"><!-- rendered by app.js --></main>
+
+    <footer class="foot">
       <div class="brand">NewsHorde</div>
       <div class="tagline">“I don't wanna know unless it's gonna kill me”</div>
       <div class="statusbar">
@@ -21,10 +24,7 @@
           <button class="pill" id="markall" hidden>Mark all read</button>
         </span>
       </div>
-    </header>
-
-    <section id="weather"><!-- forecast rendered by app.js when a location is set --></section>
-    <main id="feed"><!-- rendered by app.js --></main>
+    </footer>
   </div>
 
   <!-- location modal -->
