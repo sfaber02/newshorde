@@ -151,10 +151,9 @@ function sparkline(series) {
   const line = pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
   // Clip the tomato layer to everything below the price line.
   const clip = `polygon(0% 100%, ${pts.map((p) => `${p.x.toFixed(2)}% ${p.y.toFixed(2)}%`).join(', ')}, 100% 100%)`;
-  const tomatoes = '🍅'.repeat(320);
   return `
     <div class="ketchup-graph">
-      <div class="tomato-fill" style="clip-path:${clip};-webkit-clip-path:${clip}">${tomatoes}</div>
+      <div class="tomato-fill" style="clip-path:${clip};-webkit-clip-path:${clip}"></div>
       <svg class="ketchup-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <polyline points="${line}" fill="none" stroke="#e63946" stroke-width="2"
           stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
@@ -192,7 +191,7 @@ function renderHeadlines(d) {
     const moveColor = up ? '#ff6b6b' : '#30d158';
     const word = up ? 'up' : 'down';
     const asOf = new Date(k.asOf + 'T00:00:00').toLocaleDateString([], { month: 'long', year: 'numeric' });
-    sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month 🍅.</span>`);
+    sentences.push(`<span class="sx" style="color:#e63946">The price of ketchup is <span style="color:${moveColor}">${word} ${Math.abs(k.changePct).toFixed(4)}%</span> this month <img class="tomato-emoji" src="/tomato.png" alt="tomato" />.</span>`);
     graph = `
       <div class="ketchup-wrap">
         ${sparkline(k.series)}

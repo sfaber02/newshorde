@@ -191,13 +191,15 @@ html, body {
 .tomato-fill {
   position: absolute;
   inset: 0;
-  font-size: 20px;
-  line-height: 15px;
-  letter-spacing: -2px;
-  word-break: break-all;
-  overflow: hidden;
-  user-select: none;
-  opacity: 0.9;
+  background: url(/tomato.png) 0 0 / 22px 22px repeat;
+  opacity: 0.95;
+}
+/* inline tomato used in the ketchup blurb, sized like an emoji */
+.tomato-emoji {
+  height: 0.95em;
+  width: auto;
+  vertical-align: -0.16em;
+  margin: 0 0.03em;
 }
 .ketchup-line {
   position: absolute;
