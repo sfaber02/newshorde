@@ -99,9 +99,9 @@ export async function ketchupData() {
 }
 
 // ---- is Iggy Pop alive? -----------------------------------------------------
-// James Newell Osterberg Jr. is Wikidata entity Q184572. Property P570 is
+// James Newell Osterberg Jr. is Wikidata entity Q182665. Property P570 is
 // "date of death"; if it ever shows up there, the man is gone. Cached hard.
-const IGGY_QID = 'Q184572';
+const IGGY_QID = 'Q182665';
 let iggyCache = null;
 const IGGY_TTL = 6 * 60 * 60 * 1000; // 6h
 
